@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
+import http from 'http';
 
-import { dbConnPool } from '../connection';
+import { dbConnPool } from '../helpers/connection';
 import { UpdateTransactionsResponse } from '../types';
 
 export function handleUpdateTransactions(req: Request, res: Response) {
@@ -17,7 +18,7 @@ export function handleUpdateTransactions(req: Request, res: Response) {
     `;
 
     const getUpdatedTransactionsSql = `
-      SELECT transaction_value FROM transaction
+      SELECT SUM(transaction_value), COUNT(*) FROM transaction
       WHERE transaction_status_code = 'PAID' AND
       transaction_datetime > ? AND transaction_datetime < ?
     `;
@@ -30,23 +31,40 @@ export function handleUpdateTransactions(req: Request, res: Response) {
           period_to_datetime,
         ])
         .then(async () => {
-          const transactionValues: UpdateTransactionsResponse[] =
+          const transactionValues: [UpdateTransactionsResponse] =
             await conn.query(getUpdatedTransactionsSql, [
               period_from_datetime,
               period_to_datetime,
             ]);
 
-          const transactionCount = transactionValues.length;
-          const transactionValue = transactionValues.reduce(
-            (acc, tv) => acc + tv.transaction_value,
-            0,
-          );
-          // call next endpoint
-        });
+          const transaction_value =
+            transactionValues[0]['SUM(transaction_value)'];
+          const transaction_count = transactionValues[0]['COUNT(*)'];
 
-      res.sendStatus(200);
+          const request = http.request({
+            hostname: 'localhost',
+            port: 3000,
+            path: '/completePaymentNote',
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+
+          request.write(
+            JSON.stringify({
+              payment_note_uuid,
+              transaction_value,
+              transaction_count,
+            }),
+            () => {
+              request.end();
+            },
+          );
+
+          res.sendStatus(200);
+        });
     } catch (e) {
-      console.log(e.message);
       res.sendStatus(500);
     }
   });
@@ -63,14 +81,15 @@ export function handleGetTransactionsWithPaymentNoteId(
     `;
 
     try {
-      const transactions = await conn.query(
-        getAllTransActionsWithPaymentNoteId,
-        [req.params.paymentNoteId],
-      );
+      const transactions = await conn
+        .query(getAllTransActionsWithPaymentNoteId, [req.params.paymentNoteId])
+        .catch((e) => {
+          console.log(e);
+        });
 
       res.send(transactions);
     } catch (e) {
-      res.sendStatus(500);
+      res.sendStatus(e.message);
     }
   });
 }

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
+import http from 'http';
 
-import { dbConnPool } from '../connection';
+import { dbConnPool } from '../helpers/connection';
 import { CreatePaymentNoteResponse } from '../types';
 
 export function handleCreatePaymentNote(req: Request, res: Response) {
@@ -22,12 +23,32 @@ export function handleCreatePaymentNote(req: Request, res: Response) {
         [period_from_datetime, period_to_datetime],
       );
 
-      const paymentNoteUuid = paymentNoteResponse[0].payment_note_uuid;
-      // call next endpoint
+      const payment_note_uuid = paymentNoteResponse[0].payment_note_uuid;
 
-      res.sendStatus(200);
+      res.send(payment_note_uuid);
+
+      const request = http.request({
+        hostname: 'localhost',
+        port: 3000,
+        path: '/updateTransactions',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      request.write(
+        JSON.stringify({
+          payment_note_uuid,
+          period_from_datetime,
+          period_to_datetime,
+        }),
+        () => {
+          request.end();
+        },
+      );
     } catch (e) {
-      res.sendStatus(500);
+      console.log(e.message);
     }
   });
 }
@@ -59,9 +80,10 @@ export function handleCompletePaymentNote(req: Request, res: Response) {
 }
 
 export function handleGetPaymentNotes(req: Request, res: Response) {
+  console.log('payment');
   dbConnPool.getConnection().then(async (conn) => {
     const getAllPaymentNotesSql = `
-      SELECT * FROM payment_notes
+      SELECT * FROM payment_note
     `;
 
     try {
@@ -69,7 +91,7 @@ export function handleGetPaymentNotes(req: Request, res: Response) {
 
       res.send(paymentNotes);
     } catch (e) {
-      res.sendStatus(500);
+      res.sendStatus(e.message);
     }
   });
 }

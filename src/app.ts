@@ -5,7 +5,7 @@ import { handleCompletePaymentNote, handleCreatePaymentNote, handleGetPaymentNot
 import { handleGetTransactionsWithPaymentNoteId, handleUpdateTransactions } from './transactions/handler';
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 app.listen(port, () => {
   console.log(`Express app started on port: ${port}`);
@@ -13,12 +13,9 @@ app.listen(port, () => {
 
 app.use(bodyParser.json({ type: 'application/json' }));
 
+app.get('/paymentNotes', handleGetPaymentNotes);
 app.post('/createPaymentNote', handleCreatePaymentNote);
-
-app.post('/updateTransactions', handleUpdateTransactions);
-
 app.post('/completePaymentNote', handleCompletePaymentNote);
 
-app.get('/paymentNotes', handleGetPaymentNotes);
-
 app.get('/transactions/:paymentNoteId', handleGetTransactionsWithPaymentNoteId);
+app.post('/updateTransactions', handleUpdateTransactions);

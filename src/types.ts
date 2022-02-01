@@ -5,5 +5,6 @@ interface CreatePaymentNoteResponseObject {
 export type CreatePaymentNoteResponse = [CreatePaymentNoteResponseObject];
 
 export interface UpdateTransactionsResponse {
-  transaction_value: number;
+  'SUM(transaction_value)': number;
+  'COUNT(*)': number;
 }
